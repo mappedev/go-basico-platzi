@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/labstack/echo"
 )
 
 // INTERFACES
@@ -100,6 +103,10 @@ func say(text string, wg *sync.WaitGroup) {
 // 	// * chan<- entrada de datos
 // 	c <- text
 // }
+
+func message(text string, c chan<- string) {
+	c <- text
+}
 
 func main() {
 	// CONSTANTES
@@ -448,26 +455,91 @@ func main() {
 
 	// GOROUTINES
 	// Wait Group
-	var wg sync.WaitGroup
+	// var wg sync.WaitGroup
 	// * sync permite interactuar de forma primitiva con la Goroutines, lo cuál lo hace más eficiente, pero a costa de que es más dificil mantener
 	// * Wait Group permite almacenar goroutines que el hilo principal esperará a que se terminen de ejecutar
 
-	fmt.Println("Hello")
-	wg.Add(2) // * Agregamos una Goroutine en el ciclo del wait group
-	go say("World", &wg)
+	// fmt.Println("Hello")
+	// wg.Add(2) // * Agregamos una Goroutine en el ciclo del wait group
+	// go say("World", &wg)
 	// time.Sleep(time.Second * 1) // * Funciona pero no es la mejor práctica
 
-	go func(text string, wg *sync.WaitGroup) { // * Goroutine con función anónima
-		defer wg.Done()
-		fmt.Println(text)
-	}("Adios", &wg)
-	wg.Wait() // * Esperamos a que cada Goroutine termine
+	// go func(text string, wg *sync.WaitGroup) { // * Goroutine con función anónima
+	// 	defer wg.Done()
+	// 	fmt.Println(text)
+	// }("Adios", &wg)
+	// wg.Wait() // * Esperamos a que cada Goroutine termine
 
 	// Channels
 	// c := make(chan string, 1) // * Cantidad de Goroutines que recibirá el channel
 	// fmt.Println("Hello")
 	// go say("Bye", c)
 	// fmt.Println(<-c)
+	// * Con los channels puedes incorporar los datos y luegos hacer uso de los mismos.
+	// * Los channels siempre te devolverán los datos en el orden que los almacenaste.
+	// * Si sobrepasas los datos que pueden enviar channels te lanzará un error:
+	// ! fatal error: all goroutines are asleep - deadlock!
+
+	// * Puedes declarar un channel con un buffer y no tener que usar un coroutine para almacenar sus valores:
+	// ch := make(chan int, 100)
+	// for i := 1; i <= 100; i++ {
+	// 	ch <- i
+	// }
+
+	// for i := 1; i <= 100; i++ {
+	// 	fmt.Println(<-ch)
+	// }
+	// fmt.Println("Finish")
+
+	// * Si sobrepasas el buffer en la entrada, lanzará un error.
+	// * Si sobrepasas la salida, también lanzará un error si no usas una goroutine.
 
 	// * RECOMENDACIÓN EN CUANTO A CONCURRENCIA: se recomienda el uso de los WaitGroup debido a la eficiencia que aporta.
+
+	// Range, Close y Select en channels
+	// c := make(chan string, 2)
+
+	// c <- "Mensaje1"
+	// c <- "Mensaje2"
+
+	// fmt.Println(len(c)) // * len te dice cuantas Goroutines hay en el channel
+	// fmt.Println(cap(c)) // * cap te indica la capacidad que el channel tiene para almacenar Goroutines
+	// * Esto se realiza cuando los channels fueron declarados con buffer
+
+	// Close
+	// close(c) // * Close indica que el canal va a cerrar. Esto quiere decir que no habrá más datos a pesar de que haya más capacidad
+	// * Es recomendable cerrar el canal al dejar de usarlo
+
+	// * Si no se indica el close en un canal, no se sabe cuando terminará la iteración y producirá un error
+	// Recorrer valores de channels con Range
+	// for message := range c {
+	// 	fmt.Println(message)
+	// }
+
+	// Select
+	// email1 := make(chan string)
+	// email2 := make(chan string)
+	// go message("Hello", email1)
+	// go message("World", email2)
+
+	// * Esto es útil para poder controlar la funcionalidad en caso de que un channel ya se haya resuelto
+	// for i := 0; i < 2; i++ { // * Debemos saber la cantidad de datos que vamos a manejar y la cantidad de channels
+	// 	select {
+	// 	case m1 := <-email1:
+	// 		fmt.Println("Email recibido de email1:", m1)
+	// 	case m2 := <-email2:
+	// 		fmt.Println("Email recibido de email2:", m2)
+	// 	}
+	// }
+
+	// ECHO web framework
+	// * Instancia echo
+	e := echo.New()
+
+	// * Ruta
+	e.GET("/", func(c echo.Context) error {
+		return c.String(http.StatusOK, "Hello World!")
+	})
+
+	e.Logger.Fatal(e.Start(":7000"))
 }
